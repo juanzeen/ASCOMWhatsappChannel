@@ -1,0 +1,31 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Automation system for UENF notices in WhatsApp Channel"
+readme = "README.md"
+authors = [
+    { name = "juanzeen", email = "jziignerdev@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "beautifulsoup4>=4.15.0",
+    "dotenv>=0.9.9",
+    "fastapi[standard]>=0.161.1",
+    "feedparser>=6.0.14",
+    "supabase>=2.34.0",
+]
+
+[tool.fastapi]
+entrypoint = "src.backend.main:app"
+
+[project.scripts]
+backend = "backend:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "watchfiles>=1.3.0",
+]
