@@ -1,19 +1,39 @@
 import hmac
+import httpx
 import os
 import dotenv
+import asyncio
 from typing import Annotated
 from fastapi import FastAPI, Header, HTTPException, Depends
+from contextlib import asynccontextmanager
 from .services.messages import extract_and_send_messages
 from .services.db import save_sent_posts
 from .dependencies import get_db
 from postgrest.exceptions import APIError
-import feedparser
 
 dotenv.load_dotenv()
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-
+WAHA_URL = os.getenv("WAHA_URL")
 CRON_SECRET = os.getenv("CRON_SECRET")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Checking WAHA...")
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                response = await client.get(f"{WAHA_URL}/ping",timeout=3.0)
+                if response.status_code == 200:
+                    print("WAHA is working.")
+                    break
+            except (httpx.RequestError, httpx.HTTPStatusError):
+                pass
+
+            await asyncio.sleep(1)
+    yield
+
+app = FastAPI(lifespan=lifespan,docs_url=None, redoc_url=None, openapi_url=None)
+
 
 
 def check_secret(authorization: Annotated[str | None, Header()] = None):

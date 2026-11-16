@@ -64,7 +64,7 @@ async def send_image(message: str, image_url: str):
     }
     try:
         async with httpx.AsyncClient() as client:
-            res = await client.post(f"{WAHA_URL}/sendImage", json=payload, headers=headers)
+            res = await client.post(f"{WAHA_URL}/api/sendImage", json=payload, headers=headers)
         if res.is_error:
             error = res.text
             raise HTTPException(status_code=res.status_code,detail=f'Error: {error}')
