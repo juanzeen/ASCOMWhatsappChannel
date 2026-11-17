@@ -1,13 +1,9 @@
 import hmac
-import httpx
 import os
 import dotenv
-import asyncio
 from typing import Annotated
-from fastapi import FastAPI, Header, HTTPException, Depends
-from contextlib import asynccontextmanager
+from fastapi import FastAPI, Header, HTTPException, Depends, BackgroundTasks
 from .services.messages import extract_and_send_messages
-from .services.db import save_sent_posts
 from .dependencies import get_db
 from postgrest.exceptions import APIError
 
@@ -16,25 +12,7 @@ dotenv.load_dotenv()
 WAHA_URL = os.getenv("WAHA_URL")
 CRON_SECRET = os.getenv("CRON_SECRET")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("Checking WAHA...")
-    async with httpx.AsyncClient() as client:
-        while True:
-            try:
-                response = await client.get(f"{WAHA_URL}/ping",timeout=3.0)
-                if response.status_code == 200:
-                    print("WAHA is working.")
-                    break
-            except (httpx.RequestError, httpx.HTTPStatusError):
-                pass
-
-            await asyncio.sleep(1)
-    yield
-
-app = FastAPI(lifespan=lifespan,docs_url=None, redoc_url=None, openapi_url=None)
-
-
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 def check_secret(authorization: Annotated[str | None, Header()] = None):
     if not CRON_SECRET:
@@ -74,15 +52,7 @@ async def root(db=Depends(get_db)):
         health_status["services"]["error"] = "Internal server error."
         raise HTTPException(500, detail=health_status)
 
-@app.post("/sync")
-async def sync(auth=Depends(check_secret)):
-    sent = await extract_and_send_messages()
-
-    if len(sent) > 0:
-        response = await save_sent_posts(sent)
-        data = {"total": len(sent), "sent": sent, "inserted": response}
-        return {"data": data, "message": "Messages were successfully sent."}
-    return {
-        "data": {"total": 0, "sent": [], "inserted": []},
-        "message": "No posts have been added.",
-    }
+@app.post("/sync",status_code=200)
+async def sync(background_tasks: BackgroundTasks, auth=Depends(check_secret)):
+    background_tasks.add_task(extract_and_send_messages)
+    return {"message": "Sync request received."}

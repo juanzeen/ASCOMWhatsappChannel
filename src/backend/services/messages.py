@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 import asyncio
 import os
 import dotenv
-from .db import get_sent_posts
+from .db import get_sent_posts, save_sent_posts
 from fastapi import HTTPException
 
 dotenv.load_dotenv()
@@ -73,26 +73,6 @@ async def send_image(message: str, image_url: str):
         print(f"Erro de conexão com o WAHA: {e}")
         raise HTTPException(status_code=503, detail="WhatsApp service unavailable internally.")
 
-
-# async def send_message(message: str):
-#     payload = {
-#         "chatId": CHAT_ID,
-#         "text": format_text_message(message),
-#         "session": SESSION
-#     }
-
-#     headers = {
-#         "Content-Type": "application/json",
-#         "Accept": "application/json",
-#         "X-Api-Key": API_KEY,
-#     }
-#     async with httpx.AsyncClient() as client:
-#         res = await client.post("http://localhost:3000/api/sendText", json=payload, headers=headers)
-#     if res.status_code == 201:
-#         return True
-#     return False
-
-
 async def extract_and_send_messages() -> list[dict[str, str | int]]:
     feed = feedparser.parse("https://uenf.br/portal/feed/")
     saved_posts = await get_sent_posts()
@@ -126,4 +106,12 @@ async def extract_and_send_messages() -> list[dict[str, str | int]]:
         if was_sent == True:
             successfully_sent.append(np)
         await asyncio.sleep(1)
-    return successfully_sent
+    if(len(successfully_sent) > 0):
+        inserted_posts = await save_sent_posts(successfully_sent)
+        print(f"[RSS BOT][SUCCESS] Total posts sent: {len(successfully_sent)} | Total posts inserted into DB {len(inserted_posts)}")
+        for sp in successfully_sent:
+            print(f"[RSS BOT][SUCCESS] Title: {sp.get('title')} | ID: {sp.get('id')} | Link: {sp.get('link')}")
+        print(f"[RSS BOT][INFO] Database response: {inserted_posts}")
+        return successfully_sent
+    else:
+        print("[RSS BOT][INFO] Any post was sent.")
