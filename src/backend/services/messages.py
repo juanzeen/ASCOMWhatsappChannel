@@ -5,7 +5,6 @@ import asyncio
 import os
 import dotenv
 from .db import get_sent_posts, save_sent_posts
-from fastapi import HTTPException
 
 dotenv.load_dotenv()
 
@@ -63,15 +62,16 @@ async def send_image(message: str, image_url: str):
         "X-Api-Key": API_KEY,
     }
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(f"{WAHA_URL}/api/sendImage", json=payload, headers=headers)
         if res.is_error:
             error = res.text
-            raise HTTPException(status_code=res.status_code,detail=f'Error: {error}')
+            print(f"[RSS BOT][ERROR] Waha error: {error}")
+            return False
         return True
     except httpx.RequestError as e:
-        print(f"Erro de conexão com o WAHA: {e}")
-        raise HTTPException(status_code=503, detail="WhatsApp service unavailable internally.")
+        print(f"[RSS BOT][ERROR]Connection fail with WAHA: {e}, status: 503")
+        return False
 
 async def extract_and_send_messages() -> list[dict[str, str | int]]:
     feed = feedparser.parse("https://uenf.br/portal/feed/")
@@ -114,4 +114,4 @@ async def extract_and_send_messages() -> list[dict[str, str | int]]:
         print(f"[RSS BOT][INFO] Database response: {inserted_posts}")
         return successfully_sent
     else:
-        print("[RSS BOT][INFO] Any post was sent.")
+        print("[RSS BOT][INFO] No posts were sent.")
